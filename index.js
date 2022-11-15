@@ -22,6 +22,9 @@ async function run() {
     try {
         const serviceCollection = client.db('coreDentalReview').collection('services');
         const reviewCollection = client.db('coreDentalReview').collection('reviews');
+
+
+        // All Services Api
         app.get('/services', async (req, res) => {
             const query = {};
             const cursor = serviceCollection.find(query);
@@ -30,10 +33,20 @@ async function run() {
         })
         app.get('/home/services', async (req, res) => {
             const query = {};
-            const cursor = serviceCollection.find(query);
+            // for showing new added service in homepage
+            const cursor = serviceCollection.find(query).sort({ _id: -1 });
             const services = await cursor.limit(3).toArray();
             res.send(services);
         })
+        // for adding new service to homepage
+        app.post('/home/services', async (req, res) => {
+            const service = req.body;
+            const result = await serviceCollection.insertOne(service);
+            console.log(result)
+            res.send(result);
+        })
+
+        // for service details
         app.get('/services/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
@@ -42,7 +55,10 @@ async function run() {
             res.send(service);
         })
 
+
         // reviews api
+
+        // api for my reviews
         app.get('/my-reviews', async (req, res) => {
             let query = {};
             if (req.query.email) {
@@ -54,6 +70,16 @@ async function run() {
             const reviews = await cursor.toArray();
             res.send(reviews);
         })
+
+        // individual reviews to get for update
+        app.get('/my-reviews/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const review = await reviewCollection.findOne(query);
+            res.send(review);
+        })
+
+        // getting reviews according to the relevant services
         app.get('/reviews', async (req, res) => {
             let query = {};
             if (req.query.service_id) {
@@ -61,20 +87,39 @@ async function run() {
                     service_id: req.query.service_id
                 }
             }
-            const cursor = reviewCollection.find(query);
+            // reviews in descending order
+            const cursor = reviewCollection.find(query).sort({ _id: -1 });
             const reviews = await cursor.toArray();
             res.send(reviews);
         })
 
+
+        //  api for adding review
         app.post('/reviews', async (req, res) => {
             const review = req.body;
             const result = await reviewCollection.insertOne(review);
             res.send(result);
         })
+
+        // reviews delete
         app.delete('/my-reviews/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
             const result = await reviewCollection.deleteOne(query);
+            res.send(result);
+        })
+        // review update
+        app.put('/my-reviews/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const review = req.body;
+            const option = { upsert: true }
+            const updatedReview = {
+                $set: {
+                    review: review.review
+                }
+            }
+            const result = await reviewCollection.updateOne(filter, updatedReview, option)
             res.send(result);
         })
     }
@@ -86,7 +131,6 @@ async function run() {
 run().catch(error => {
     console.log(error);
 })
-
 
 app.get('/', (req, res) => {
     res.send('Core Dental Review server is running');
